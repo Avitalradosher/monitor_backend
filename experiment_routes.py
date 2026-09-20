@@ -193,6 +193,7 @@ def patch_participant():
             last_name=data.get("last_name"),
             phone=data.get("phone"),
             age=int(age) if age is not None else None,
+            training_mode=data.get("training_mode"),
         )
         return jsonify(progress), 200
     except (ValueError, TypeError) as exc:

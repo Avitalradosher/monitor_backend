@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import random
 from datetime import datetime, timezone
 from typing import Any
 
@@ -168,7 +167,9 @@ def bootstrap_participant(client_install_id: str) -> dict[str, Any]:
             participant_id = int(existing[0])
         else:
             code = _next_participant_code(cursor)
-            condition = random.choice(["real", "control"])
+            # External QA selects the arm in Profile. Keep a deterministic
+            # default until an explicit selection is saved.
+            condition = "real"
             cursor.execute(
                 """
                 INSERT INTO Participants (ClientInstallId, ParticipantCode, Condition)
@@ -236,10 +237,14 @@ def update_participant_profile(
     last_name: str | None = None,
     phone: str | None = None,
     age: int | None = None,
+    training_mode: str | None = None,
 ) -> dict[str, Any]:
     client_install_id = (client_install_id or "").strip()
     if not client_install_id:
         raise ValueError("client_install_id is required")
+
+    if training_mode is not None and training_mode not in ("ppg", "audio"):
+        raise ValueError("training_mode must be ppg or audio")
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -299,6 +304,12 @@ def update_participant_profile(
             cursor.execute(
                 "UPDATE Participants SET Age = ? WHERE Id = ?",
                 age,
+                participant_id,
+            )
+        if training_mode is not None:
+            cursor.execute(
+                "UPDATE Participants SET Condition = ? WHERE Id = ?",
+                "control" if training_mode == "audio" else "real",
                 participant_id,
             )
         progress = _load_progress(cursor, participant_id)

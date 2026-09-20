@@ -14,8 +14,7 @@ Fresh databases can instead run [`sql/001_experiment_schema.sql`](../sql/001_exp
 
 `Participants` must include **`ClientInstallId`** (unique) — the app identity key.
 
-`Participants.Condition` (`real` | `control`) is assigned only on the server and
-**must never** be returned to the client.
+`Participants.Condition` (`real` | `control`) is stored on the server. During external QA, the Profile selector updates it via the neutral `training_mode` API field; the raw Condition column is not returned to the client.
 
 Compatible live nuances (no code change needed):
 - `Sessions.DurationSeconds` as `int` is fine
@@ -67,3 +66,9 @@ Progress JSON never includes `condition`. It includes neutral `training_mode`:
 Prep, PRE, and POST are identical for both arms; only training sessions (trail 2–9) differ.
 
 Trail steps: `1` = PRE, `2–9` = sessions 1–8, `10` = POST.
+
+## Temporary external-QA group selection
+
+Random assignment is disabled: new participants default to `Condition = real`. Existing assignments remain unchanged at bootstrap. `PATCH /data/participants/me` accepts optional `training_mode` (`ppg` or `audio`) and updates the identified participant's Condition (`real` or `control`). Invalid values return 400. Omitting the field leaves the assignment unchanged. No SQL migration is required.
+
+The Profile selector is available in normal app builds and is independent of developer debug overrides. Saving a group does not reset existing trial progress or scores; mixed-group testing histories should be treated as QA data. Deploy the backend change with the frontend; the frontend requires the response to echo the chosen mode before considering the profile saved. Restore the intended allocation policy and remove the manual selector before study recruitment.
